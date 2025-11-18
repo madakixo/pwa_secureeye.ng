@@ -1,0 +1,5 @@
+  nginx:
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./pwa:/usr/share/nginx/html:ro   # ← NOW SERVES PWA
+      - ./certs:/etc/nginx/certs:ro
