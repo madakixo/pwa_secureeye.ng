@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>SecureEye.ng</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" href="/icons/icon-192.png">
+
+  <!-- Tailwind + Glassmorphism -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    body {
+      background: url('/assets/background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      font-family: 'Inter', sans-serif;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-black text-white">
+
+<div x-data="{ page: 'landing', email: '', phone: '', cameraUrl: localStorage.getItem('cameraUrl') || '' }" class="min-h-screen flex items-center justify-center">
+
+  <!-- Landing / Register Page -->
+  <div x-show="page === 'landing'" class="w-full max-w-6xl px-6">
+    <div class="text-center mb-16">
+      <h1 class="text-6xl md:text-8xl font-black mb-4">
+        SECURE<span class="text-green-400">EYE</span>.<span class="text-yellow-400">NG</span>
+      </h1>
+      <p class="text-2xl md:text-4xl opacity-90">AI CCTV for Nigeria — ₦2,500/month</p>
+    </div>
+
+    <div class="glass p-10 max-w-lg mx-auto">
+      <h2 class="text-3xl font-bold text-center mb-8 text-green-300">Start Protection Now</h2>
+      <input x-model="email" type="email" placeholder="Email" class="w-full p-4 mb-4 bg-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400">
+      <input x-model="phone" type="tel" placeholder="Phone (+234)" class="w-full p-4 mb-8 bg-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400">
+      <button @click="startPayment()" class="w-full bg-gradient-to-r from-green-500 to-yellow-400 text-black font-bold text-xl py-5 rounded-xl hover:scale-105 transition">
+        ACTIVATE CAMERA — ₦2,500
+      </button>
+      <p class="text-center mt-4 text-green-300">7 Days FREE • Cancel Anytime</p>
+    </div>
+  </div>
+
+  <!-- Dashboard Page -->
+  <div x-show="page === 'dashboard'" class="w-full p-6">
+    <div class="glass p-8 rounded-3xl mb-8">
+      <h2 class="text-4xl font-bold text-green-400 mb-6">Live Camera Feed</h2>
+      <div class="mb-4">
+        <input x-model="cameraUrl" placeholder="IP Camera URL (e.g. http://192.168.1.100:8080/video)" class="w-full p-4 bg-white/10 rounded-xl">
+        <button @click="localStorage.setItem('cameraUrl', cameraUrl)" class="mt-2 px-6 py-3 bg-green-600 rounded-xl">Save URL</button>
+      </div>
+      <div class="relative">
+        <img :src="cameraUrl || 'https://via.placeholder.com/800x600?text=NO+CAMERA+URL+SET'" class="w-full rounded-2xl" alt="Live feed">
+        <div class="absolute bottom-4 left-4 bg-black/50 px-4 py-2 rounded-lg text-green-400 font-bold">STATUS: LIVE</div>
+      </div>
+    </div>
+
+    <div class="glass p-8 rounded-3xl">
+      <h3 class="text-2xl font-bold mb-4 text-yellow-400">Recent Alerts</h3>
+      <div id="alerts" class="space-y-4">
+        <!-- Alerts loaded via JS from backend -->
+      </div>
+    </div>
+
+    <button @click="page = 'landing'" class="fixed bottom-8 right-8 bg-red-600 p-6 rounded-full shadow-2xl hover:scale-110 transition">
+      Logout
+    </button>
+  </div>
+</div>
+
+<script>
+  function startPayment() {
+    const email = Alpine.store('app').email;
+    const phone = Alpine.store('app').phone;
+    fetch('/api/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, phone, name: 'Customer'})
+    })
+    .then(r => r.json())
+    .then(data => window.location.href = data.payment_url);
+  }
+
+  // Auto-login if paid (simplified)
+  if (localStorage.getItem('paid') === 'true') {
+    Alpine.store('app').page = 'dashboard';
+  }
+
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+
+</body>
+</html>
