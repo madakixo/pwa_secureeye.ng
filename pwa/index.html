@@ -7,17 +7,16 @@
   <title>SecureEye.ng</title>
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="manifest" href="/pwa/manifest.json">
+  <link rel="apple-touch-icon" href="/pwa/icon-192.png">
+  <link rel="icon" href="/pwa/icon-192.png">
 
   <!-- Tailwind + Glassmorphism -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <style>
     body {
-      background: url('/assets/background.jpg') no-repeat center center fixed;
-      background-size: cover;
+      background: #000;
       font-family: 'Inter', sans-serif;
     }
     .glass {
@@ -30,9 +29,9 @@
     }
   </style>
 </head>
-<body class="min-h-screen bg-black text-white">
+<body class="min-h-screen bg-black text-white" x-data="app()">
 
-<div x-data="{ page: 'landing', email: '', phone: '', cameraUrl: localStorage.getItem('cameraUrl') || '' }" class="min-h-screen flex items-center justify-center">
+<div class="min-h-screen flex items-center justify-center">
 
   <!-- Landing / Register Page -->
   <div x-show="page === 'landing'" class="w-full max-w-6xl px-6">
@@ -45,6 +44,7 @@
 
     <div class="glass p-10 max-w-lg mx-auto">
       <h2 class="text-3xl font-bold text-center mb-8 text-green-300">Start Protection Now</h2>
+      <input x-model="name" type="text" placeholder="Full Name" class="w-full p-4 mb-4 bg-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400">
       <input x-model="email" type="email" placeholder="Email" class="w-full p-4 mb-4 bg-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400">
       <input x-model="phone" type="tel" placeholder="Phone (+234)" class="w-full p-4 mb-8 bg-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400">
       <button @click="startPayment()" class="w-full bg-gradient-to-r from-green-500 to-yellow-400 text-black font-bold text-xl py-5 rounded-xl hover:scale-105 transition">
@@ -55,12 +55,12 @@
   </div>
 
   <!-- Dashboard Page -->
-  <div x-show="page === 'dashboard'" class="w-full p-6">
+  <div x-show="page === 'dashboard'" class="w-full p-6" x-cloak>
     <div class="glass p-8 rounded-3xl mb-8">
       <h2 class="text-4xl font-bold text-green-400 mb-6">Live Camera Feed</h2>
       <div class="mb-4">
-        <input x-model="cameraUrl" placeholder="IP Camera URL (e.g. http://192.168.1.100:8080/video)" class="w-full p-4 bg-white/10 rounded-xl">
-        <button @click="localStorage.setItem('cameraUrl', cameraUrl)" class="mt-2 px-6 py-3 bg-green-600 rounded-xl">Save URL</button>
+        <input x-model="cameraUrl" placeholder="IP Camera URL (e.g. http://192.168.1.100:8080/video)" class="w-full p-4 bg-white/10 rounded-xl text-white">
+        <button @click="activateCamera()" class="mt-2 px-6 py-3 bg-green-600 rounded-xl hover:bg-green-500 transition">Save & Start Camera</button>
       </div>
       <div class="relative">
         <img :src="cameraUrl || 'https://via.placeholder.com/800x600?text=NO+CAMERA+URL+SET'" class="w-full rounded-2xl" alt="Live feed">
@@ -71,39 +71,84 @@
     <div class="glass p-8 rounded-3xl">
       <h3 class="text-2xl font-bold mb-4 text-yellow-400">Recent Alerts</h3>
       <div id="alerts" class="space-y-4">
-        <!-- Alerts loaded via JS from backend -->
+        <p class="text-gray-400 italic">No recent alerts. Everything looks safe.</p>
       </div>
     </div>
 
-    <button @click="page = 'landing'" class="fixed bottom-8 right-8 bg-red-600 p-6 rounded-full shadow-2xl hover:scale-110 transition">
+    <button @click="logout()" class="fixed bottom-8 right-8 bg-red-600 p-6 rounded-full shadow-2xl hover:scale-110 transition">
       Logout
     </button>
   </div>
 </div>
 
 <script>
-  function startPayment() {
-    const email = Alpine.store('app').email;
-    const phone = Alpine.store('app').phone;
-    fetch('/api/register', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email, phone, name: 'Customer'})
-    })
-    .then(r => r.json())
-    .then(data => window.location.href = data.payment_url);
-  }
+  function app() {
+    return {
+      page: 'landing',
+      name: '',
+      email: localStorage.getItem('email') || '',
+      phone: '',
+      cameraUrl: localStorage.getItem('cameraUrl') || '',
 
-  // Auto-login if paid (simplified)
-  if (localStorage.getItem('paid') === 'true') {
-    Alpine.store('app').page = 'dashboard';
+      init() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('paid') === 'true' || localStorage.getItem('paid') === 'true') {
+          if (urlParams.get('email')) {
+              this.email = urlParams.get('email');
+              localStorage.setItem('email', this.email);
+              localStorage.setItem('paid', 'true');
+          }
+          this.checkStatus();
+        }
+      },
+
+      async checkStatus() {
+          if (!this.email) return;
+          const res = await fetch(`/api/user-status?email=${this.email}`);
+          const data = await res.json();
+          if (data.active) {
+              this.page = 'dashboard';
+          }
+      },
+
+      async startPayment() {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email: this.email, phone: this.phone, name: this.name})
+        });
+        const data = await res.json();
+        localStorage.setItem('email', this.email);
+        window.location.href = data.payment_url;
+      },
+
+      async activateCamera() {
+        localStorage.setItem('cameraUrl', this.cameraUrl);
+        const res = await fetch('/api/activate-camera', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: this.email, camera_url: this.cameraUrl})
+        });
+        const data = await res.json();
+        alert(data.message);
+      },
+
+      logout() {
+        localStorage.clear();
+        this.page = 'landing';
+      }
+    }
   }
 
   // Register Service Worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
+    navigator.serviceWorker.register('/pwa/sw.js');
   }
 </script>
+
+<style>
+[x-cloak] { display: none !important; }
+</style>
 
 </body>
 </html>
